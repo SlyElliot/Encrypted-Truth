@@ -129,7 +129,13 @@
         <div class="footer">Follow the trail. The truth awaits.</div>
     </div>
 
-    <script>
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+        const supabaseUrl = 'https://tlrpfnlefgfodhmclbtp.supabase.co'; // Replace with your Supabase URL
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRscnBmbmxlZmdmb2RobWNsYnRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzUzMzQ2ODgsImV4cCI6MjA1MDkxMDY4OH0.GoUkXylqpFnACpg7Yz3WyuSOpJUYPfC_hE8e2FfZihE'; // Replace with your Supabase anon key
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
         const hackerNames = ["Lucifer", "DeadShot", "Ratio", "PhantomX", "ShadowWolf", "RemainingYears", "yamuware6713103", "bunkai123241", "TheCollector"];
         const grid = document.getElementById("grid");
         const input = document.getElementById("input");
@@ -139,18 +145,27 @@
         let attempts = 0;
         let selectedRowIndex = 0;
 
-        function setCookie(name, value, days) {
-            const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
-            document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+        async function fetchLeaderboard() {
+            const { data, error } = await supabase.from('leaderboard').select('*').order('attempts', { ascending: true }).limit(10);
+            if (error) {
+                console.error("Error fetching leaderboard:", error);
+                return;
+            }
+            leaderboard.innerHTML = "";
+            data.forEach((entry, index) => {
+                const listItem = document.createElement("li");
+                listItem.textContent = `${index + 1}. ${entry.name} - ${entry.attempts} attempts`;
+                leaderboard.appendChild(listItem);
+            });
         }
 
-        function getCookie(name) {
-            const cookies = document.cookie.split("; ");
-            for (let cookie of cookies) {
-                const [key, value] = cookie.split("=");
-                if (key === name) return decodeURIComponent(value);
+        async function saveToLeaderboard(playerName, attempts) {
+            const { error } = await supabase.from('leaderboard').insert([{ name: playerName, attempts }]);
+            if (error) {
+                console.error("Error saving to leaderboard:", error);
+                return;
             }
-            return null;
+            fetchLeaderboard();
         }
 
         function createGrid() {
@@ -180,45 +195,6 @@
                 cell.classList.remove("correct", "present", "incorrect");
                 cell.textContent = "";
             });
-        }
-
-        function saveGameState() {
-            const rows = Array.from(document.querySelectorAll(".row")).map(row => {
-                return Array.from(row.querySelectorAll(".cell")).map(cell => ({
-                    textContent: cell.textContent,
-                    classes: Array.from(cell.classList).join(" ")
-                }));
-            });
-            const gameState = {
-                rows,
-                selectedRowIndex,
-                attempts
-            };
-            setCookie("gameState", JSON.stringify(gameState), 7); // Save for 7 days
-        }
-
-        function loadGameState() {
-            const savedState = getCookie("gameState");
-            if (savedState) {
-                const { rows, selectedRowIndex: savedRowIndex, attempts: savedAttempts } = JSON.parse(savedState);
-                grid.innerHTML = ""; // Clear the grid
-                rows.forEach(rowData => {
-                    const row = document.createElement("div");
-                    row.className = "row";
-                    rowData.forEach(cellData => {
-                        const cell = document.createElement("div");
-                        cell.className = `cell ${cellData.classes}`;
-                        cell.textContent = cellData.textContent;
-                        row.appendChild(cell);
-                    });
-                    grid.appendChild(row);
-                });
-                selectedRowIndex = savedRowIndex;
-                attempts = savedAttempts;
-                highlightRow(selectedRowIndex);
-            } else {
-                createGrid();
-            }
         }
 
         function handleGuess() {
@@ -258,28 +234,12 @@
                 message.textContent = "Try again!";
             }
 
-            saveGameState();
-
             if (attempts === hackerNames.length) {
                 const playerName = prompt("Game Over! Enter your name for the leaderboard:");
                 if (playerName) {
-                    const entry = document.createElement("li");
-                    entry.textContent = `${playerName} - ${attempts} attempts`;
-                    leaderboard.appendChild(entry);
+                    saveToLeaderboard(playerName, attempts);
                 }
             }
-        }
-
-        function handleRowNavigation(e) {
-            const rows = document.querySelectorAll(".row");
-            if (e.key === "ArrowUp") {
-                selectedRowIndex = (selectedRowIndex - 1 + rows.length) % rows.length;
-                highlightRow(selectedRowIndex);
-            } else if (e.key === "ArrowDown") {
-                selectedRowIndex = (selectedRowIndex + 1) % rows.length;
-                highlightRow(selectedRowIndex);
-            }
-            saveGameState();
         }
 
         grid.addEventListener("click", e => {
@@ -287,14 +247,13 @@
             if (clickedRow) {
                 selectedRowIndex = parseInt(clickedRow.dataset.index, 10);
                 highlightRow(selectedRowIndex);
-                saveGameState();
             }
         });
 
-        document.addEventListener("keydown", handleRowNavigation);
         submit.addEventListener("click", handleGuess);
 
-        loadGameState();
+        createGrid();
+        fetchLeaderboard();
     </script>
 </body>
 </html>
