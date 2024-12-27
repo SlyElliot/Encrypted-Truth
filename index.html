@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Little Black Book Game</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background: #0d0d0d;
+            color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .game-container {
+            text-align: center;
+        }
+
+        .title {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .row {
+            display: flex;
+            gap: 5px;
+        }
+
+        .row.selected {
+            border: 2px solid #0f0;
+            padding: 2px;
+            background: rgba(0, 255, 0, 0.1);
+            animation: glow 1s infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 10px #0f0; }
+            to { box-shadow: 0 0 20px #0f0; }
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            background: #111;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #0f0;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .cell.correct {
+            background: #0f0;
+            color: #111;
+            animation: flicker 0.5s ease-in-out;
+        }
+
+        .cell.present {
+            background: #ff0;
+            color: #111;
+        }
+
+        .cell.incorrect {
+            background: #900;
+            color: #fff;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .leaderboard {
+            margin-top: 20px;
+            color: #0f0;
+        }
+
+        .code-input {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            background: #111;
+            color: #0f0;
+            border: 2px solid #333;
+            padding: 5px;
+            text-align: center;
+            animation: glitch 1s infinite;
+        }
+
+        @keyframes glitch {
+            0%, 100% { text-shadow: 2px 2px #0f0, -2px -2px #111; }
+            50% { text-shadow: -2px -2px #0f0, 2px 2px #111; }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="title">The Little Black Book Game</div>
+        <div class="grid" id="grid"></div>
+        <input class="code-input" id="input" placeholder="Enter hacker name...">
+        <button id="submit" style="margin-top: 10px;">Submit</button>
+        <div id="message"></div>
+        <div class="leaderboard" id="leaderboard">
+            <h2>Top Codebreakers</h2>
+            <ol id="scoreboard"></ol>
+        </div>
+        <div class="footer">Follow the trail. The truth awaits.</div>
+    </div>
+
+    <script>
+        const hackerNames = ["Lucifer", "DeadShot", "Ratio", "PhantomX", "ShadowWolf", "RemainingYears", "yamuware6713103", "bunkai123241", "TheCollector"];
+        const grid = document.getElementById("grid");
+        const input = document.getElementById("input");
+        const submit = document.getElementById("submit");
+        const message = document.getElementById("message");
+        const leaderboard = document.getElementById("scoreboard");
+        let attempts = 0;
+        let selectedRowIndex = 0;
+
+        function setCookie(name, value, days) {
+            const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
+            document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+        }
+
+        function getCookie(name) {
+            const cookies = document.cookie.split("; ");
+            for (let cookie of cookies) {
+                const [key, value] = cookie.split("=");
+                if (key === name) return decodeURIComponent(value);
+            }
+            return null;
+        }
+
+        function createGrid() {
+            hackerNames.forEach((name, index) => {
+                const row = document.createElement("div");
+                row.className = "row";
+                row.dataset.index = index;
+                for (let i = 0; i < 10; i++) {
+                    const cell = document.createElement("div");
+                    cell.className = "cell";
+                    row.appendChild(cell);
+                }
+                grid.appendChild(row);
+            });
+            highlightRow(0);
+        }
+
+        function highlightRow(index) {
+            const rows = document.querySelectorAll(".row");
+            rows.forEach(row => row.classList.remove("selected"));
+            rows[index].classList.add("selected");
+        }
+
+        function clearRowColors(row) {
+            const cells = row.querySelectorAll(".cell");
+            cells.forEach(cell => {
+                cell.classList.remove("correct", "present", "incorrect");
+                cell.textContent = "";
+            });
+        }
+
+        function saveGameState() {
+            const rows = Array.from(document.querySelectorAll(".row")).map(row => {
+                return Array.from(row.querySelectorAll(".cell")).map(cell => ({
+                    textContent: cell.textContent,
+                    classes: Array.from(cell.classList).join(" ")
+                }));
+            });
+            const gameState = {
+                rows,
+                selectedRowIndex,
+                attempts
+            };
+            setCookie("gameState", JSON.stringify(gameState), 7); // Save for 7 days
+        }
+
+        function loadGameState() {
+            const savedState = getCookie("gameState");
+            if (savedState) {
+                const { rows, selectedRowIndex: savedRowIndex, attempts: savedAttempts } = JSON.parse(savedState);
+                grid.innerHTML = ""; // Clear the grid
+                rows.forEach(rowData => {
+                    const row = document.createElement("div");
+                    row.className = "row";
+                    rowData.forEach(cellData => {
+                        const cell = document.createElement("div");
+                        cell.className = `cell ${cellData.classes}`;
+                        cell.textContent = cellData.textContent;
+                        row.appendChild(cell);
+                    });
+                    grid.appendChild(row);
+                });
+                selectedRowIndex = savedRowIndex;
+                attempts = savedAttempts;
+                highlightRow(selectedRowIndex);
+            } else {
+                createGrid();
+            }
+        }
+
+        function handleGuess() {
+            const rows = document.querySelectorAll(".row");
+            const currentRow = rows[selectedRowIndex];
+            const cells = currentRow.querySelectorAll(".cell");
+            const nameToGuess = hackerNames[selectedRowIndex].toLowerCase();
+
+            clearRowColors(currentRow);
+
+            const guess = input.value.trim().toLowerCase();
+            input.value = "";
+            attempts++;
+
+            if (!guess) {
+                message.textContent = "Enter a name.";
+                return;
+            }
+
+            guess.split("").forEach((char, i) => {
+                const cell = cells[i];
+                if (char === nameToGuess[i]) {
+                    cell.classList.add("correct");
+                    cell.textContent = char;
+                } else if (nameToGuess.includes(char)) {
+                    cell.classList.add("present");
+                    cell.textContent = char;
+                } else {
+                    cell.classList.add("incorrect");
+                    cell.textContent = char;
+                }
+            });
+
+            if (guess === nameToGuess) {
+                message.textContent = "Correct! Well done!";
+            } else {
+                message.textContent = "Try again!";
+            }
+
+            saveGameState();
+
+            if (attempts === hackerNames.length) {
+                const playerName = prompt("Game Over! Enter your name for the leaderboard:");
+                if (playerName) {
+                    const entry = document.createElement("li");
+                    entry.textContent = `${playerName} - ${attempts} attempts`;
+                    leaderboard.appendChild(entry);
+                }
+            }
+        }
+
+        function handleRowNavigation(e) {
+            const rows = document.querySelectorAll(".row");
+            if (e.key === "ArrowUp") {
+                selectedRowIndex = (selectedRowIndex - 1 + rows.length) % rows.length;
+                highlightRow(selectedRowIndex);
+            } else if (e.key === "ArrowDown") {
+                selectedRowIndex = (selectedRowIndex + 1) % rows.length;
+                highlightRow(selectedRowIndex);
+            }
+            saveGameState();
+        }
+
+        grid.addEventListener("click", e => {
+            const clickedRow = e.target.closest(".row");
+            if (clickedRow) {
+                selectedRowIndex = parseInt(clickedRow.dataset.index, 10);
+                highlightRow(selectedRowIndex);
+                saveGameState();
+            }
+        });
+
+        document.addEventListener("keydown", handleRowNavigation);
+        submit.addEventListener("click", handleGuess);
+
+        loadGameState();
+    </script>
+</body>
+</html>
