@@ -5,21 +5,31 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
-    if (req.method === 'POST') {
+    try {
+        if (req.method !== 'POST') {
+            return res.status(405).json({ error: 'Method not allowed' });
+        }
+
         const { rowIndex } = req.body;
+
+        if (typeof rowIndex !== 'number' || rowIndex < 0) {
+            return res.status(400).json({ error: 'Invalid rowIndex provided' });
+        }
+
         const { data, error } = await supabase
             .from('hacker_names')
             .select('name')
-            .eq('id', rowIndex + 1)
+            .eq('id', rowIndex + 1) // 1-based index in the database
             .single();
 
-        if (error) {
-            console.error('Error fetching hacker name:', error);
-            return res.status(500).json({ error: 'Failed to fetch hacker name.' });
+        if (error || !data) {
+            console.error('Database error:', error || 'No data found');
+            return res.status(500).json({ error: 'Failed to fetch hacker name' });
         }
 
         return res.status(200).json({ name: data.name });
-    } else {
-        return res.status(405).json({ error: 'Method not allowed' });
+    } catch (err) {
+        console.error('Unexpected error:', err);
+        return res.status(500).json({ error: 'Internal server error' });
     }
 }
