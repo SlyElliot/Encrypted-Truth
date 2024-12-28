@@ -8,11 +8,14 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  min-height: 100vh;
 }
 
 .game-container {
   text-align: center;
+  width: 90%;
+  max-width: 600px;
+  margin: auto;
 }
 
 .title {
@@ -30,14 +33,18 @@ body {
 .row {
   display: flex;
   gap: 5px;
+  justify-content: left;
 }
 
 .row.selected {
   border: 2px solid #0f0;
-  padding: 2px;
+  width: 100%;
   background: rgba(0, 255, 0, 0.1);
+  padding: 0; /* Remove extra padding that might limit the size */
+  margin: -5px; /* Negative margin to extend beyond the cell gaps */
   animation: glow 1s infinite alternate;
 }
+
 
 @keyframes glow {
   from {
@@ -49,8 +56,8 @@ body {
 }
 
 .cell {
-  width: 40px;
-  height: 40px;
+  width: 35px;
+  height: 35px;
   background: #111;
   border: 2px solid #333;
   display: flex;
@@ -117,5 +124,31 @@ body {
   }
   50% {
       text-shadow: -2px -2px #0f0, 2px 2px #111;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .cell {
+      width: 30px;
+      height: 30px;
+      font-size: 1rem;
+  }
+
+  .title {
+      font-size: 1.5rem;
+  }
+
+  .attempts-and-timer {
+      font-size: 0.8rem;
+  }
+
+  button {
+      font-size: 0.9rem;
+      padding: 8px 15px;
+  }
+
+  .leaderboard {
+      font-size: 0.9rem;
   }
 }

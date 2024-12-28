@@ -6,14 +6,19 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
     if (req.method === 'POST') {
-        const { userId, gridState, attemptCount } = req.body;
+        const { userId, gridState, attempts, cooldownTimers } = req.body;
 
         const { error } = await supabase
             .from('sessions')
-            .upsert({ user_id: userId, grid_state: gridState, attempt_count: attemptCount });
+            .upsert({
+                user_id: userId,
+                grid_state: gridState,
+                attempts,
+                cooldown_timers: cooldownTimers,
+                updated_at: new Date().toISOString(),
+            });
 
         if (error) {
-            console.error('Error saving session:', error);
             return res.status(500).json({ error: 'Failed to save session.' });
         }
 

@@ -10,13 +10,12 @@ export default async function handler(req, res) {
 
         const { data, error } = await supabase
             .from('sessions')
-            .select('grid_state, attempt_count')
+            .select('grid_state, attempts, cooldown_timers')
             .eq('user_id', userId)
             .single();
 
-        if (error) {
-            console.error('Error loading session:', error);
-            return res.status(500).json({ error: 'Failed to load session.' });
+        if (error || !data) {
+            return res.status(404).json({ error: 'Session not found.' });
         }
 
         res.status(200).json(data);

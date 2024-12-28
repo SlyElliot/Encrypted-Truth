@@ -8,11 +8,54 @@ export default function Home() {
     const [selectedRowIndex, setSelectedRowIndex] = useState(0);
     const [attempts, setAttempts] = useState([]);
     const [cooldownTimers, setCooldownTimers] = useState([]);
+    const [userId, setUserId] = useState(null);
 
     useEffect(() => {
+        const storedUserId = localStorage.getItem('userId') || generateUserId();
+        setUserId(storedUserId);
+        loadSession(storedUserId);
         createGrid();
         fetchLeaderboard();
     }, []);
+
+    function generateUserId() {
+        const id = `user_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('userId', id);
+        return id;
+    }
+
+    async function saveSession() {
+        if (!userId) return;
+        const sessionData = {
+            userId,
+            gridState: JSON.stringify(grid),
+            attempts: JSON.stringify(attempts),
+            cooldownTimers: JSON.stringify(cooldownTimers),
+        };
+
+        await fetch('/api/save-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sessionData),
+        });
+    }
+
+    async function loadSession(userId) {
+        const response = await fetch('/api/load-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId }),
+        });
+
+        if (response.ok) {
+            const { grid_state, attempts, cooldown_timers } = await response.json();
+            setGrid(JSON.parse(grid_state));
+            setAttempts(JSON.parse(attempts));
+            setCooldownTimers(JSON.parse(cooldown_timers));
+        } else {
+            console.log('No existing session found.');
+        }
+    }
 
     async function createGrid() {
         try {
@@ -28,7 +71,6 @@ export default function Home() {
                 return;
             }
 
-            // Generate grid rows based on hacker name lengths
             const rows = hackerNames.map(({ name }) => Array(name.length).fill(''));
             setGrid(rows);
             setAttempts(new Array(rows.length).fill(0));
@@ -129,6 +171,8 @@ export default function Home() {
         } else {
             setMessage('Try again!');
         }
+
+        saveSession();
     }
 
     function handleKeyDown(e, rowIndex, cellIndex) {
@@ -192,8 +236,10 @@ export default function Home() {
         rows.forEach((row, index) => {
             if (index === selectedRowIndex) {
                 row.classList.add('highlighted');
+                row.style.width = '100%';
             } else {
                 row.classList.remove('highlighted');
+                row.style.width = 'auto';
             }
         });
     }, [selectedRowIndex]);
@@ -208,47 +254,52 @@ export default function Home() {
     return (
         <div className="game-container">
             <div className="title">Encrypted Truth</div>
-            <div className="grid">
-                {grid.map((row, rowIndex) => (
-                    <div
-                        key={rowIndex}
-                        className={`row ${rowIndex === selectedRowIndex ? 'selected' : ''}`}
-                        onClick={() => setSelectedRowIndex(rowIndex)}
-                    >
-                        {row.map((cell, cellIndex) => (
-                            <input
-                                key={cellIndex}
-                                type="text"
-                                maxLength={1}
-                                value={cell.char || ''}
-                                onChange={(e) => {
-                                    if (getRemainingCooldown(rowIndex) > 0) return; // Prevent input during cooldown
-                                    const updatedGrid = [...grid];
-                                    updatedGrid[rowIndex][cellIndex] = { char: e.target.value[0] || '', status: '' };
-                                    setGrid(updatedGrid);
-                                }}
-                                onKeyDown={(e) => handleKeyDown(e, rowIndex, cellIndex)}
-                                className={`cell ${cell?.status || ''}`}
-                                data-row={rowIndex}
-                                data-cell={cellIndex}
-                                style={{ textAlign: 'center' }}
-                            />
-                        ))}
-                        <div className="attempts-and-timer">
-                            <span>{`Attempts: ${attempts[rowIndex]} / 10`}</span>
-                            {getRemainingCooldown(rowIndex) > 0 && (
-                                <span className="cooldown">
-                                    {` Cooldown: ${formatTime(getRemainingCooldown(rowIndex))}`}
-                                </span>
-                            )}
+            {/* Wrap grid in a scrollable container */}
+            <div className="grid-container">
+                <div className="grid">
+                    {grid.map((row, rowIndex) => (
+                        <div
+                            key={rowIndex}
+                            className={`row ${rowIndex === selectedRowIndex ? 'selected' : ''}`}
+                            onClick={() => setSelectedRowIndex(rowIndex)}
+                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                        >
+                            <div style={{ flex: 1, display: 'flex', gap: '5px' }}>
+                                {row.map((cell, cellIndex) => (
+                                    <input
+                                        key={cellIndex}
+                                        type="text"
+                                        maxLength={1}
+                                        value={cell.char || ''}
+                                        onChange={(e) => {
+                                            if (getRemainingCooldown(rowIndex) > 0) return;
+                                            const updatedGrid = [...grid];
+                                            updatedGrid[rowIndex][cellIndex] = { char: e.target.value[0] || '', status: '' };
+                                            setGrid(updatedGrid);
+                                        }}
+                                        onKeyDown={(e) => handleKeyDown(e, rowIndex, cellIndex)}
+                                        className={`cell ${cell?.status || ''}`}
+                                        data-row={rowIndex}
+                                        data-cell={cellIndex}
+                                        style={{ textAlign: 'center' }}
+                                    />
+                                ))}
+                            </div>
+                            <div className="attempts-and-timer">
+                                <span>{`Attempts: ${attempts[rowIndex]} / 10`}</span>
+                                {getRemainingCooldown(rowIndex) > 0 && (
+                                    <span className="cooldown">
+                                        {`Cooldown: ${formatTime(getRemainingCooldown(rowIndex))}`}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
             <button onClick={handleGuess} disabled={getRemainingCooldown(selectedRowIndex) > 0}>Submit</button>
             <div>{message}</div>
             <div className="leaderboard">
-                
                 <ol>
                     {leaderboard.map((entry, index) => (
                         <li key={index}>
