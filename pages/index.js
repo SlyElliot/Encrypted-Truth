@@ -11,11 +11,28 @@ export default function Home() {
     const [userId, setUserId] = useState(null);
 
     useEffect(() => {
-        const storedUserId = localStorage.getItem('userId') || generateUserId();
-        setUserId(storedUserId);
-        loadSession(storedUserId);
-        createGrid();
-        fetchLeaderboard();
+        async function initializeGame() {
+            const storedUserId = localStorage.getItem('userId') || generateUserId();
+            setUserId(storedUserId);
+            
+            try {
+                // First try to load existing session
+                const sessionLoaded = await loadSession(storedUserId);
+                
+                // Only create new grid if no session was loaded
+                if (!sessionLoaded) {
+                    await createGrid();
+                }
+                
+                await fetchLeaderboard();
+            } catch (error) {
+                console.error('Error initializing game:', error);
+                // Fallback to creating new grid if loading fails
+                await createGrid();
+            }
+        }
+
+        initializeGame();
     }, []);
 
     function generateUserId() {
@@ -26,34 +43,52 @@ export default function Home() {
 
     async function saveSession() {
         if (!userId) return;
-        const sessionData = {
-            userId,
-            gridState: JSON.stringify(grid),
-            attempts: JSON.stringify(attempts),
-            cooldownTimers: JSON.stringify(cooldownTimers),
-        };
+        
+        try {
+            const sessionData = {
+                userId,
+                gridState: JSON.stringify(grid),
+                attempts: JSON.stringify(attempts),
+                cooldownTimers: JSON.stringify(cooldownTimers),
+            };
 
-        await fetch('/api/save-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(sessionData),
-        });
+            const response = await fetch('/api/save-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sessionData),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save session');
+            }
+            
+            console.log('Session saved successfully');
+        } catch (error) {
+            console.error('Error saving session:', error);
+        }
     }
 
     async function loadSession(userId) {
-        const response = await fetch('/api/load-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId }),
-        });
+        try {
+            const response = await fetch('/api/load-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+            });
 
-        if (response.ok) {
-            const { grid_state, attempts, cooldown_timers } = await response.json();
-            setGrid(JSON.parse(grid_state));
-            setAttempts(JSON.parse(attempts));
-            setCooldownTimers(JSON.parse(cooldown_timers));
-        } else {
-            console.log('No existing session found.');
+            if (response.ok) {
+                const { grid_state, attempts, cooldown_timers } = await response.json();
+                if (grid_state && attempts && cooldown_timers) {
+                    setGrid(JSON.parse(grid_state));
+                    setAttempts(JSON.parse(attempts));
+                    setCooldownTimers(JSON.parse(cooldown_timers));
+                    return true; // Session loaded successfully
+                }
+            }
+            return false; // No session found or invalid data
+        } catch (error) {
+            console.error('Error loading session:', error);
+            return false;
         }
     }
 
@@ -142,8 +177,7 @@ export default function Home() {
         const guess = grid[selectedRowIndex].map((cell) => cell.char || '').join('').toLowerCase();
         const updatedAttempts = [...attempts];
         updatedAttempts[selectedRowIndex]++;
-        setAttempts(updatedAttempts);
-
+        
         if (updatedAttempts[selectedRowIndex] >= 10) {
             startCooldown(selectedRowIndex);
         }
@@ -164,15 +198,19 @@ export default function Home() {
                 updatedGrid[selectedRowIndex][i] = { char, status: 'incorrect' };
             }
         }
-        setGrid(updatedGrid);
 
+        // Update all states before saving
+        setGrid(updatedGrid);
+        setAttempts(updatedAttempts);
+        
         if (guess === nameToGuess) {
             setMessage('Correct! Well done!');
         } else {
             setMessage('Try again!');
         }
 
-        saveSession();
+        // Save after all state updates
+        await saveSession();
     }
 
     function handleKeyDown(e, rowIndex, cellIndex) {
