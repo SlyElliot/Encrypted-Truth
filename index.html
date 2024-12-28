@@ -132,11 +132,10 @@
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-        const supabaseUrl = 'https://tlrpfnlefgfodhmclbtp.supabase.co'; // Replace with your Supabase URL
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRscnBmbmxlZmdmb2RobWNsYnRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzUzMzQ2ODgsImV4cCI6MjA1MDkxMDY4OH0.GoUkXylqpFnACpg7Yz3WyuSOpJUYPfC_hE8e2FfZihE'; // Replace with your Supabase anon key
+        const supabaseUrl = "https://tlrpfnlefgfodhmclbtp.supabase.co";
+        const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRscnBmbmxlZmdmb2RobWNsYnRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzUzMzQ2ODgsImV4cCI6MjA1MDkxMDY4OH0.GoUkXylqpFnACpg7Yz3WyuSOpJUYPfC_hE8e2FfZihE";
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        const hackerNames = ["Lucifer", "DeadShot", "Ratio", "PhantomX", "ShadowWolf", "RemainingYears", "yamuware6713103", "bunkai123241", "TheCollector"];
         const grid = document.getElementById("grid");
         const input = document.getElementById("input");
         const submit = document.getElementById("submit");
@@ -144,6 +143,22 @@
         const leaderboard = document.getElementById("scoreboard");
         let attempts = 0;
         let selectedRowIndex = 0;
+
+        async function fetchHackerName(rowIndex) {
+            const response = await fetch('/api/get-hacker-name', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rowIndex })
+            });
+
+            if (!response.ok) {
+                console.error('Failed to fetch hacker name.');
+                return null;
+            }
+
+            const { name } = await response.json();
+            return name.toLowerCase();
+        }
 
         async function fetchLeaderboard() {
             const { data, error } = await supabase.from('leaderboard').select('*').order('attempts', { ascending: true }).limit(10);
@@ -169,17 +184,17 @@
         }
 
         function createGrid() {
-            hackerNames.forEach((name, index) => {
+            for (let i = 0; i < 10; i++) {
                 const row = document.createElement("div");
                 row.className = "row";
-                row.dataset.index = index;
-                for (let i = 0; i < 10; i++) {
+                row.dataset.index = i;
+                for (let j = 0; j < 10; j++) {
                     const cell = document.createElement("div");
                     cell.className = "cell";
                     row.appendChild(cell);
                 }
                 grid.appendChild(row);
-            });
+            }
             highlightRow(0);
         }
 
@@ -197,11 +212,13 @@
             });
         }
 
-        function handleGuess() {
+        async function handleGuess() {
             const rows = document.querySelectorAll(".row");
             const currentRow = rows[selectedRowIndex];
             const cells = currentRow.querySelectorAll(".cell");
-            const nameToGuess = hackerNames[selectedRowIndex].toLowerCase();
+
+            const nameToGuess = await fetchHackerName(selectedRowIndex);
+            if (!nameToGuess) return;
 
             clearRowColors(currentRow);
 
@@ -234,7 +251,7 @@
                 message.textContent = "Try again!";
             }
 
-            if (attempts === hackerNames.length) {
+            if (attempts === 10) {
                 const playerName = prompt("Game Over! Enter your name for the leaderboard:");
                 if (playerName) {
                     saveToLeaderboard(playerName, attempts);
