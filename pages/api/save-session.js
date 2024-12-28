@@ -2,6 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+// Add error checking for environment variables
+if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase environment variables');
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
@@ -12,30 +18,46 @@ export default async function handler(req, res) {
     try {
         const { userId, gridState, attempts, cooldownTimers } = req.body;
 
+        // Validate the data
         if (!userId || !gridState || !attempts || !cooldownTimers) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        const { error } = await supabase
+        // Store the data as strings in Supabase
+        const sessionData = {
+            user_id: userId,
+            grid_state: gridState,  // Already a JSON string
+            attempts: attempts,      // Already a JSON string
+            cooldown_timers: cooldownTimers,  // Already a JSON string
+            updated_at: new Date().toISOString()
+        };
+
+        // Use upsert with the unique constraint
+        const { data, error } = await supabase
             .from('sessions')
-            .upsert({
-                user_id: userId,
-                grid_state: gridState,
-                attempts,
-                cooldown_timers: cooldownTimers,
-                updated_at: new Date().toISOString(),
-            }, {
-                onConflict: 'user_id'
+            .upsert(sessionData, {
+                onConflict: 'user_id',
+                returning: 'minimal'
             });
 
         if (error) {
             console.error('Supabase error:', error);
-            return res.status(500).json({ error: 'Failed to save session' });
+            return res.status(500).json({ 
+                error: 'Failed to save session', 
+                details: error.message 
+            });
         }
 
-        res.status(200).json({ message: 'Session saved successfully' });
+        return res.status(200).json({ 
+            message: 'Session saved successfully',
+            userId: userId
+        });
+
     } catch (error) {
         console.error('Server error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        return res.status(500).json({ 
+            error: 'Internal server error', 
+            details: error.message 
+        });
     }
 }

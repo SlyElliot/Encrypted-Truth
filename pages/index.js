@@ -9,6 +9,11 @@ export default function Home() {
     const [attempts, setAttempts] = useState([]);
     const [cooldownTimers, setCooldownTimers] = useState([]);
     const [userId, setUserId] = useState(null);
+    const [startTime] = useState(Date.now());
+    const [showLeaderboardPopup, setShowLeaderboardPopup] = useState(false);
+    const [playerName, setPlayerName] = useState('');
+    const [isGameComplete, setIsGameComplete] = useState(false);
+    const [showCompletionMessage, setShowCompletionMessage] = useState(false);
 
     useEffect(() => {
         async function initializeGame() {
@@ -41,10 +46,29 @@ export default function Home() {
         return id;
     }
 
+    useEffect(() => {
+        let timeoutId;
+        if (grid.length > 0 && userId) {
+            // Debounce the save to prevent too many calls
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                saveSession();
+            }, 1000);
+        }
+        return () => clearTimeout(timeoutId);
+    }, [grid, userId]);
+
     async function saveSession() {
-        if (!userId) return;
+        if (!userId || !grid.length) return;
         
         try {
+            console.log('Attempting to save session with data:', {
+                userId,
+                gridLength: grid.length,
+                attemptsLength: attempts.length,
+                cooldownTimersLength: cooldownTimers.length
+            });
+
             const sessionData = {
                 userId,
                 gridState: JSON.stringify(grid),
@@ -58,34 +82,50 @@ export default function Home() {
                 body: JSON.stringify(sessionData),
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error('Failed to save session');
+                console.error('Save session failed:', data);
+                throw new Error(data.details || data.error || 'Failed to save session');
             }
             
-            console.log('Session saved successfully');
+            console.log('Session saved successfully:', data);
         } catch (error) {
-            console.error('Error saving session:', error);
+            console.error('Error in saveSession:', error);
+            // Don't throw the error, just log it
+            // This prevents the unhandled runtime error
         }
     }
 
     async function loadSession(userId) {
         try {
+            console.log('Loading session for userId:', userId);
             const response = await fetch('/api/load-session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId }),
             });
 
-            if (response.ok) {
-                const { grid_state, attempts, cooldown_timers } = await response.json();
-                if (grid_state && attempts && cooldown_timers) {
-                    setGrid(JSON.parse(grid_state));
-                    setAttempts(JSON.parse(attempts));
-                    setCooldownTimers(JSON.parse(cooldown_timers));
-                    return true; // Session loaded successfully
-                }
+            const data = await response.json();
+            console.log('Load session response:', data);
+
+            if (response.ok && data.grid_state && data.attempts && data.cooldown_timers) {
+                const parsedGrid = JSON.parse(data.grid_state);
+                const parsedAttempts = JSON.parse(data.attempts);
+                const parsedCooldowns = JSON.parse(data.cooldown_timers);
+
+                console.log('Parsed session data:', {
+                    grid: parsedGrid,
+                    attempts: parsedAttempts,
+                    cooldowns: parsedCooldowns
+                });
+
+                setGrid(parsedGrid);
+                setAttempts(parsedAttempts);
+                setCooldownTimers(parsedCooldowns);
+                return true;
             }
-            return false; // No session found or invalid data
+            return false;
         } catch (error) {
             console.error('Error loading session:', error);
             return false;
@@ -123,13 +163,9 @@ export default function Home() {
                 return;
             }
             const data = await response.json();
-            if (Array.isArray(data)) {
-                setLeaderboard(data);
-            } else {
-                setLeaderboard([]);
-            }
+            setLeaderboard(data);
         } catch (error) {
-            setLeaderboard([]);
+            console.error('Error fetching leaderboard:', error);
         }
     }
 
@@ -147,7 +183,7 @@ export default function Home() {
     }
 
     function startCooldown(rowIndex) {
-        const endTime = Date.now() + 8 * 60 * 60 * 1000;
+        const endTime = Date.now() + 1 * 60 * 60 * 1000;
         const updatedCooldowns = [...cooldownTimers];
         updatedCooldowns[rowIndex] = endTime;
         setCooldownTimers(updatedCooldowns);
@@ -165,6 +201,40 @@ export default function Home() {
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 
+    function checkGameCompletion(updatedGrid) {
+        return updatedGrid.every(row => 
+            row.every(cell => cell.status === 'correct')
+        );
+    }
+
+    async function handleLeaderboardSubmission(e) {
+        e.preventDefault();
+        if (!playerName.trim()) return;
+
+        const totalAttempts = attempts.reduce((sum, current) => sum + current, 0);
+        const completionTime = Math.floor((Date.now() - startTime) / 1000);
+
+        try {
+            const response = await fetch('/api/save-leaderboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    playerName,
+                    totalAttempts,
+                    completionTime
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to save leaderboard entry');
+
+            setShowLeaderboardPopup(false);
+            setShowCompletionMessage(true);
+            fetchLeaderboard();
+        } catch (error) {
+            console.error('Error saving to leaderboard:', error);
+        }
+    }
+
     async function handleGuess() {
         if (attempts[selectedRowIndex] >= 10) {
             setMessage('Maximum attempts reached. Please wait.');
@@ -175,17 +245,15 @@ export default function Home() {
         if (!nameToGuess) return;
 
         const guess = grid[selectedRowIndex].map((cell) => cell.char || '').join('').toLowerCase();
-        const updatedAttempts = [...attempts];
-        updatedAttempts[selectedRowIndex]++;
         
-        if (updatedAttempts[selectedRowIndex] >= 10) {
-            startCooldown(selectedRowIndex);
-        }
-
         if (!guess) {
             setMessage('Enter a name.');
             return;
         }
+
+        // Create all updates first
+        const updatedAttempts = [...attempts];
+        updatedAttempts[selectedRowIndex]++;
 
         const updatedGrid = [...grid];
         for (let i = 0; i < guess.length; i++) {
@@ -199,17 +267,34 @@ export default function Home() {
             }
         }
 
-        // Update all states before saving
+        let updatedCooldowns = [...cooldownTimers];
+        if (updatedAttempts[selectedRowIndex] >= 10) {
+            const endTime = Date.now() + 8 * 60 * 60 * 1000;
+            updatedCooldowns[selectedRowIndex] = endTime;
+        }
+
+        // Update all state at once
         setGrid(updatedGrid);
         setAttempts(updatedAttempts);
+        setCooldownTimers(updatedCooldowns);
         
         if (guess === nameToGuess) {
             setMessage('Correct! Well done!');
+            
+            // Check if this was the last name needed
+            const isComplete = checkGameCompletion(updatedGrid);
+            if (isComplete && !isGameComplete) {
+                setIsGameComplete(true);
+                setShowLeaderboardPopup(true);
+            }
         } else {
             setMessage('Try again!');
         }
 
-        // Save after all state updates
+        // Wait for a moment to ensure state updates are processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Then save
         await saveSession();
     }
 
@@ -300,9 +385,8 @@ export default function Home() {
                             key={rowIndex}
                             className={`row ${rowIndex === selectedRowIndex ? 'selected' : ''}`}
                             onClick={() => setSelectedRowIndex(rowIndex)}
-                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                         >
-                            <div style={{ flex: 1, display: 'flex', gap: '5px' }}>
+                            <div className="cell-container">
                                 {row.map((cell, cellIndex) => (
                                     <input
                                         key={cellIndex}
@@ -337,14 +421,57 @@ export default function Home() {
             </div>
             <button onClick={handleGuess} disabled={getRemainingCooldown(selectedRowIndex) > 0}>Submit</button>
             <div>{message}</div>
+            {showLeaderboardPopup && (
+                <div className="popup-overlay">
+                    <div className="popup">
+                        <h2>Congratulations!</h2>
+                        <p>You've completed all the names!</p>
+                        <form onSubmit={handleLeaderboardSubmission}>
+                            <input
+                                type="text"
+                                placeholder="Enter your name"
+                                value={playerName}
+                                onChange={(e) => setPlayerName(e.target.value)}
+                                maxLength={20}
+                                required
+                            />
+                            <button type="submit">Submit Score</button>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {showCompletionMessage && (
+                <div className="popup-overlay">
+                    <div className="popup">
+                        <h2>Recognition Granted</h2>
+                        <p>You will be recognized for your code-breaking work.</p>
+                        <p>Please await the next phase.</p>
+                        <button onClick={() => setShowCompletionMessage(false)}>Close</button>
+                    </div>
+                </div>
+            )}
             <div className="leaderboard">
-                <ol>
-                    {leaderboard.map((entry, index) => (
-                        <li key={index}>
-                            {entry.name} - {entry.attempts} attempts
-                        </li>
-                    ))}
-                </ol>
+                <h2>Leaderboard</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Name</th>
+                            <th>Attempts</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {leaderboard.map((entry, index) => (
+                            <tr key={index}>
+                                <td>{index + 1}</td>
+                                <td>{entry.player_name}</td>
+                                <td>{entry.total_attempts}</td>
+                                <td>{formatTime(entry.completion_time * 1000)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
