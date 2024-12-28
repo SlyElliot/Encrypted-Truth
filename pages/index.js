@@ -269,7 +269,7 @@ export default function Home() {
 
         let updatedCooldowns = [...cooldownTimers];
         if (updatedAttempts[selectedRowIndex] >= 10) {
-            const endTime = Date.now() + 8 * 60 * 60 * 1000;
+            const endTime = Date.now() + 1 * 60 * 60 * 1000;
             updatedCooldowns[selectedRowIndex] = endTime;
         }
 
