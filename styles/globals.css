@@ -145,27 +145,66 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .cell {
-      width: 30px;
-      height: 30px;
-      font-size: 1rem;
+  .game-container {
+    padding: 10px 0;
+    margin: 0;
+    width: 100%;
   }
 
-  .title {
-      font-size: 1.5rem;
+  .grid-container {
+    width: 100vw;
+    margin-left: -10px;
+    padding: 0 10px;
+    overflow-x: scroll;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .grid {
+    width: fit-content;
+    min-width: min-content;
+  }
+
+  .row {
+    width: fit-content;
+    min-width: max-content;
+    padding-right: 80px;
+  }
+
+  .cell {
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+  }
+
+  .cell-container {
+    display: flex;
+    gap: 5px;
+    min-width: max-content;
   }
 
   .attempts-and-timer {
-      font-size: 0.8rem;
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 5px;
+    border-radius: 4px;
+  }
+
+  .title {
+    font-size: 1.5rem;
   }
 
   button {
-      font-size: 0.9rem;
-      padding: 8px 15px;
+    font-size: 0.9rem;
+    padding: 8px 15px;
   }
 
   .leaderboard {
-      font-size: 0.9rem;
+    font-size: 0.9rem;
+    padding: 0 10px;
   }
 }
 
