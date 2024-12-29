@@ -21,7 +21,8 @@ export default async function handler(req, res) {
             .insert([{
                 player_name: playerName,
                 total_attempts: totalAttempts,
-                completion_time: completionTime
+                completion_time: completionTime,
+                email: null
             }]);
 
         if (error) {

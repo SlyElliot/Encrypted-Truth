@@ -326,3 +326,112 @@ body {
     background: #0a0;
     transform: scale(1.05);
 }
+
+.email-form {
+    margin: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+    width: 100%;
+}
+
+.email-input {
+    background: #222;
+    border: 1px solid #0f0;
+    color: #0f0;
+    padding: 0.8rem;
+    width: 90%;
+    max-width: 300px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.email-input:focus {
+    outline: none;
+    border-color: #0f0;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.skip-button {
+    margin-top: 1rem;
+    background: transparent;
+    border: 1px solid #0f0;
+    color: #0f0;
+}
+
+.skip-button:hover {
+    background: rgba(0, 255, 0, 0.1);
+}
+
+.popup form button {
+    margin-top: 0.5rem;
+    min-width: 120px;
+}
+
+.popup form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.submit-button {
+    background: #111;
+    color: #0f0;
+    border: 2px solid #0f0;
+    padding: 12px 30px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.submit-button:hover:not(:disabled) {
+    background: #0f0;
+    color: #111;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+    transform: scale(1.05);
+}
+
+.submit-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #444;
+    color: #444;
+}
+
+.submit-button:before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border: 2px solid #0f0;
+    animation: glitch-border 1s infinite alternate;
+}
+
+@keyframes glitch-border {
+    0% {
+        clip-path: inset(0 0 98% 0);
+    }
+    20% {
+        clip-path: inset(0 98% 0 0);
+    }
+    40% {
+        clip-path: inset(98% 0 0 0);
+    }
+    60% {
+        clip-path: inset(0 0 0 98%);
+    }
+    100% {
+        clip-path: inset(0 0 0 0);
+    }
+}

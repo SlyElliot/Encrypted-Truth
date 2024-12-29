@@ -14,6 +14,7 @@ export default function Home() {
     const [playerName, setPlayerName] = useState('');
     const [isGameComplete, setIsGameComplete] = useState(false);
     const [showCompletionMessage, setShowCompletionMessage] = useState(false);
+    const [playerEmail, setPlayerEmail] = useState('');
 
     useEffect(() => {
         async function initializeGame() {
@@ -235,6 +236,33 @@ export default function Home() {
         }
     }
 
+    async function handleEmailSubmission(e) {
+        e.preventDefault();
+        if (!playerEmail.trim()) return;
+
+        try {
+            const response = await fetch('/api/update-leaderboard-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    playerName,
+                    email: playerEmail
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to save email');
+            }
+            
+            setShowCompletionMessage(false);
+        } catch (error) {
+            console.error('Error saving email:', error);
+            setMessage(error.message || 'Failed to save email. Please try again.');
+        }
+    }
+
     async function handleGuess() {
         if (attempts[selectedRowIndex] >= 10) {
             setMessage('Maximum attempts reached. Please wait.');
@@ -339,6 +367,7 @@ export default function Home() {
             );
             if (prevInput) prevInput.focus();
         } else if (/^[a-zA-Z0-9]$/.test(key)) {
+            e.preventDefault(); // Prevent default to stop the key from being entered twice
             const updatedGrid = [...grid];
             updatedGrid[rowIndex][cellIndex] = { char: key, status: '' };
             setGrid(updatedGrid);
@@ -346,7 +375,15 @@ export default function Home() {
             const nextInput = document.querySelector(
                 `input[data-row='${rowIndex}'][data-cell='${cellIndex + 1}']`
             );
-            if (nextInput) nextInput.focus();
+            if (nextInput) {
+                nextInput.focus();
+                // Clear any existing value in the next input when moving to it
+                if (nextInput && grid[rowIndex][cellIndex + 1]?.char === '') {
+                    const updatedGrid = [...grid];
+                    updatedGrid[rowIndex][cellIndex + 1] = { char: '', status: '' };
+                    setGrid(updatedGrid);
+                }
+            }
         }
 
         if (newSelectedRowIndex !== selectedRowIndex) {
@@ -419,7 +456,13 @@ export default function Home() {
                     ))}
                 </div>
             </div>
-            <button onClick={handleGuess} disabled={getRemainingCooldown(selectedRowIndex) > 0}>Submit</button>
+            <button 
+                onClick={handleGuess} 
+                disabled={getRemainingCooldown(selectedRowIndex) > 0}
+                className="submit-button"
+            >
+                Submit
+            </button>
             <div>{message}</div>
             {showLeaderboardPopup && (
                 <div className="popup-overlay">
@@ -443,10 +486,22 @@ export default function Home() {
             {showCompletionMessage && (
                 <div className="popup-overlay">
                     <div className="popup">
-                        <h2>Recognition Granted</h2>
-                        <p>You will be recognized for your code-breaking work.</p>
+                        <h2>Access Granted</h2>
+                        <p>You have our attention now.</p>
                         <p>Please await the next phase.</p>
-                        <button onClick={() => setShowCompletionMessage(false)}>Close</button>
+                        <form onSubmit={handleEmailSubmission} className="email-form">
+                            <input
+                                type="email"
+                                placeholder="Enter your email"
+                                value={playerEmail}
+                                onChange={(e) => setPlayerEmail(e.target.value)}
+                                className="email-input"
+                            />
+                            <button type="submit">Submit</button>
+                        </form>
+                        <button onClick={() => setShowCompletionMessage(false)} className="skip-button">
+                            Skip
+                        </button>
                     </div>
                 </div>
             )}
