@@ -50,6 +50,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({ 
             message: 'Session saved successfully',
+            userId: userId
         });
 
     } catch (error) {

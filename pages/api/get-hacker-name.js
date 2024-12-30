@@ -26,7 +26,7 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: 'No hacker name found for this row index.' });
         }
 
-       
+        res.status(200).json({ name: data.name });
     } else {
         res.status(405).json({ error: 'Method not allowed' });
     }
