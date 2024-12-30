@@ -270,6 +270,9 @@ export default function Home() {
             return;
         }
 
+        const nameToGuess = await fetchHackerName(selectedRowIndex);
+        if (!nameToGuess) return;
+
         const guess = grid[selectedRowIndex].map((cell) => cell.char || '').join('').toLowerCase();
         
         if (!guess) {
@@ -277,63 +280,51 @@ export default function Home() {
             return;
         }
 
-        try {
-            const response = await fetch('/api/get-hacker-name', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    rowIndex: selectedRowIndex,
-                    guess: guess 
-                }),
-            });
+        // Create all updates first
+        const updatedAttempts = [...attempts];
+        updatedAttempts[selectedRowIndex]++;
 
-            if (!response.ok) return;
-
-            const { result } = await response.json();
-            
-            // Create all updates first
-            const updatedAttempts = [...attempts];
-            updatedAttempts[selectedRowIndex]++;
-
-            const updatedGrid = [...grid];
-            for (let i = 0; i < guess.length; i++) {
-                updatedGrid[selectedRowIndex][i] = { 
-                    char: guess[i], 
-                    status: result[i] 
-                };
-            }
-
-            let updatedCooldowns = [...cooldownTimers];
-            if (updatedAttempts[selectedRowIndex] >= 20) {
-                const endTime = Date.now() + 5 * 60 * 1000;
-                updatedCooldowns[selectedRowIndex] = endTime;
-            }
-
-            // Update all state at once
-            setGrid(updatedGrid);
-            setAttempts(updatedAttempts);
-            setCooldownTimers(updatedCooldowns);
-            
-            if (result.every(status => status === 'correct')) {
-                setMessage('Correct! Well done!');
-                
-                // Check if this was the last name needed
-                const isComplete = checkGameCompletion(updatedGrid);
-                if (isComplete && !isGameComplete) {
-                    setIsGameComplete(true);
-                    setShowLeaderboardPopup(true);
-                }
+        const updatedGrid = [...grid];
+        for (let i = 0; i < guess.length; i++) {
+            const char = guess[i];
+            if (char === nameToGuess[i]) {
+                updatedGrid[selectedRowIndex][i] = { char, status: 'correct' };
+            } else if (nameToGuess.includes(char)) {
+                updatedGrid[selectedRowIndex][i] = { char, status: 'present' };
             } else {
-                setMessage('Try again!');
+                updatedGrid[selectedRowIndex][i] = { char, status: 'incorrect' };
             }
-
-            await new Promise(resolve => setTimeout(resolve, 100));
-            await saveSession();
-
-        } catch (error) {
-            console.error('Error in handleGuess:', error);
-            setMessage('An error occurred. Please try again.');
         }
+
+        let updatedCooldowns = [...cooldownTimers];
+        if (updatedAttempts[selectedRowIndex] >= 20) {
+            const endTime = Date.now() + 5 * 60 * 1000;
+            updatedCooldowns[selectedRowIndex] = endTime;
+        }
+
+        // Update all state at once
+        setGrid(updatedGrid);
+        setAttempts(updatedAttempts);
+        setCooldownTimers(updatedCooldowns);
+        
+        if (guess === nameToGuess) {
+            setMessage('Correct! Well done!');
+            
+            // Check if this was the last name needed
+            const isComplete = checkGameCompletion(updatedGrid);
+            if (isComplete && !isGameComplete) {
+                setIsGameComplete(true);
+                setShowLeaderboardPopup(true);
+            }
+        } else {
+            setMessage('Try again!');
+        }
+
+        // Wait for a moment to ensure state updates are processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Then save
+        await saveSession();
     }
 
     function handleKeyDown(e, rowIndex, cellIndex) {
