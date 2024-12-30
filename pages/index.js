@@ -532,9 +532,9 @@ export default function Home() {
             {showTutorial && (
                 <div className="popup-overlay">
                     <div className="popup">
-                        <h2>Welcome to Encrypted Truth</h2>
+                        <h2>Welcome to the fight</h2>
                         <div className="tutorial-content">
-                            <p>Your goal is to decrypt hidden hacker names.</p>
+                            <p>Your goal is to decrypt the hidden hacker names.</p>
                             <p>How to play:</p>
                             <ul>
                                 <li>Type your guess into each row</li>
