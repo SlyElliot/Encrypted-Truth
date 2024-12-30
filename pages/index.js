@@ -535,6 +535,7 @@ export default function Home() {
                         <h2>Welcome to the fight</h2>
                         <div className="tutorial-content">
                             <p>Your goal is to decrypt the hidden hacker names.</p>
+                            <p>If you watch the video, you will find the answers.</p>
                             <p>How to play:</p>
                             <ul>
                                 <li>Type your guess into each row</li>
