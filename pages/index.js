@@ -270,9 +270,6 @@ export default function Home() {
             return;
         }
 
-        const nameToGuess = await fetchHackerName(selectedRowIndex);
-        if (!nameToGuess) return;
-
         const guess = grid[selectedRowIndex].map((cell) => cell.char || '').join('').toLowerCase();
         
         if (!guess) {
@@ -280,51 +277,63 @@ export default function Home() {
             return;
         }
 
-        // Create all updates first
-        const updatedAttempts = [...attempts];
-        updatedAttempts[selectedRowIndex]++;
+        try {
+            const response = await fetch('/api/get-hacker-name', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    rowIndex: selectedRowIndex,
+                    guess: guess 
+                }),
+            });
 
-        const updatedGrid = [...grid];
-        for (let i = 0; i < guess.length; i++) {
-            const char = guess[i];
-            if (char === nameToGuess[i]) {
-                updatedGrid[selectedRowIndex][i] = { char, status: 'correct' };
-            } else if (nameToGuess.includes(char)) {
-                updatedGrid[selectedRowIndex][i] = { char, status: 'present' };
-            } else {
-                updatedGrid[selectedRowIndex][i] = { char, status: 'incorrect' };
-            }
-        }
+            if (!response.ok) return;
 
-        let updatedCooldowns = [...cooldownTimers];
-        if (updatedAttempts[selectedRowIndex] >= 20) {
-            const endTime = Date.now() + 5 * 60 * 1000;
-            updatedCooldowns[selectedRowIndex] = endTime;
-        }
-
-        // Update all state at once
-        setGrid(updatedGrid);
-        setAttempts(updatedAttempts);
-        setCooldownTimers(updatedCooldowns);
-        
-        if (guess === nameToGuess) {
-            setMessage('Correct! Well done!');
+            const { pattern, isCorrect } = await response.json();
             
-            // Check if this was the last name needed
-            const isComplete = checkGameCompletion(updatedGrid);
-            if (isComplete && !isGameComplete) {
-                setIsGameComplete(true);
-                setShowLeaderboardPopup(true);
-            }
-        } else {
-            setMessage('Try again!');
-        }
+            // Create all updates first
+            const updatedAttempts = [...attempts];
+            updatedAttempts[selectedRowIndex]++;
 
-        // Wait for a moment to ensure state updates are processed
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Then save
-        await saveSession();
+            const updatedGrid = [...grid];
+            for (let i = 0; i < guess.length; i++) {
+                updatedGrid[selectedRowIndex][i] = { 
+                    char: guess[i], 
+                    status: pattern[i] 
+                };
+            }
+
+            let updatedCooldowns = [...cooldownTimers];
+            if (updatedAttempts[selectedRowIndex] >= 20) {
+                const endTime = Date.now() + 5 * 60 * 1000;
+                updatedCooldowns[selectedRowIndex] = endTime;
+            }
+
+            // Update all state at once
+            setGrid(updatedGrid);
+            setAttempts(updatedAttempts);
+            setCooldownTimers(updatedCooldowns);
+            
+            if (isCorrect) {
+                setMessage('Correct! Well done!');
+                
+                // Check if this was the last name needed
+                const isComplete = checkGameCompletion(updatedGrid);
+                if (isComplete && !isGameComplete) {
+                    setIsGameComplete(true);
+                    setShowLeaderboardPopup(true);
+                }
+            } else {
+                setMessage('Try again!');
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await saveSession();
+
+        } catch (error) {
+            console.error('Error in handleGuess:', error);
+            setMessage('An error occurred. Please try again.');
+        }
     }
 
     function handleKeyDown(e, rowIndex, cellIndex) {
