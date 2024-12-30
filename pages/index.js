@@ -15,6 +15,7 @@ export default function Home() {
     const [isGameComplete, setIsGameComplete] = useState(false);
     const [showCompletionMessage, setShowCompletionMessage] = useState(false);
     const [playerEmail, setPlayerEmail] = useState('');
+    const [showTutorial, setShowTutorial] = useState(true);
 
     useEffect(() => {
         async function initializeGame() {
@@ -184,7 +185,7 @@ export default function Home() {
     }
 
     function startCooldown(rowIndex) {
-        const endTime = Date.now() + 1 * 60 * 60 * 1000;
+        const endTime = Date.now() + 5 * 60 * 1000;
         const updatedCooldowns = [...cooldownTimers];
         updatedCooldowns[rowIndex] = endTime;
         setCooldownTimers(updatedCooldowns);
@@ -264,7 +265,7 @@ export default function Home() {
     }
 
     async function handleGuess() {
-        if (attempts[selectedRowIndex] >= 10) {
+        if (attempts[selectedRowIndex] >= 20) {
             setMessage('Maximum attempts reached. Please wait.');
             return;
         }
@@ -296,8 +297,8 @@ export default function Home() {
         }
 
         let updatedCooldowns = [...cooldownTimers];
-        if (updatedAttempts[selectedRowIndex] >= 10) {
-            const endTime = Date.now() + 1 * 60 * 60 * 1000;
+        if (updatedAttempts[selectedRowIndex] >= 20) {
+            const endTime = Date.now() + 5 * 60 * 1000;
             updatedCooldowns[selectedRowIndex] = endTime;
         }
 
@@ -445,7 +446,7 @@ export default function Home() {
                                 ))}
                             </div>
                             <div className="attempts-and-timer">
-                                <span>{`Attempts: ${attempts[rowIndex]} / 10`}</span>
+                                <span>{`Attempts: ${attempts[rowIndex]} / 20`}</span>
                                 {getRemainingCooldown(rowIndex) > 0 && (
                                     <span className="cooldown">
                                         {`Cooldown: ${formatTime(getRemainingCooldown(rowIndex))}`}
@@ -528,6 +529,31 @@ export default function Home() {
                     </tbody>
                 </table>
             </div>
+            {showTutorial && (
+                <div className="popup-overlay">
+                    <div className="popup">
+                        <h2>Welcome to Encrypted Truth</h2>
+                        <div className="tutorial-content">
+                            <p>Your goal is to decrypt hidden hacker names.</p>
+                            <p>How to play:</p>
+                            <ul>
+                                <li>Type your guess into each row</li>
+                                <li>Green = correct letter in correct position</li>
+                                <li>Yellow = correct letter in wrong position</li>
+                                <li>Red = incorrect letter</li>
+                            </ul>
+                            <p>You have a set number of attempts per name</p>
+                            <p>After you reach the maximum attempts, row locks for a set time limit</p>
+                        </div>
+                        <button 
+                            onClick={() => setShowTutorial(false)}
+                            className="submit-button"
+                        >
+                            Start Decrypting
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
