@@ -5,34 +5,29 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
+    if (req.method === 'POST') {
+        const { rowIndex } = req.body;
 
-    const { rowIndex, guess } = req.body;
-    
-    try {
-        // Get the name from your source but don't send it back
-        const hackerName = getHackerName(rowIndex); // Your existing function
-        
-        if (!guess) {
-            return res.status(400).json({ error: 'No guess provided' });
+        // Adjusted to match IDs starting from 19
+        const targetId = 19 + rowIndex;
+
+        const { data, error } = await supabase
+            .from('hacker_names')
+            .select('name')
+            .eq('id', targetId)
+            .single();
+
+        if (error) {
+            console.error('Error fetching hacker name:', error);
+            return res.status(500).json({ error: 'Failed to fetch hacker name.' });
         }
 
-        // Validate the guess and return only the result pattern
-        const result = guess.toLowerCase().split('').map((char, index) => {
-            if (char === hackerName[index]) {
-                return 'correct';
-            } else if (hackerName.includes(char)) {
-                return 'present';
-            } else {
-                return 'incorrect';
-            }
-        });
+        if (!data) {
+            return res.status(404).json({ error: 'No hacker name found for this row index.' });
+        }
 
-        res.status(200).json({ result });
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(200).json({ name: data.name });
+    } else {
+        res.status(405).json({ error: 'Method not allowed' });
     }
 }
