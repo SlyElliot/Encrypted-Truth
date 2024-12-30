@@ -13,18 +13,15 @@ export default async function handler(req, res) {
         const { data, error } = await supabase
             .from('leaderboard')
             .select('*')
-            .order('total_attempts', { ascending: true })
             .order('completion_time', { ascending: true })
             .limit(10);
 
         if (error) {
-            console.error('Supabase error:', error);
             return res.status(500).json({ error: 'Failed to fetch leaderboard' });
         }
 
         res.status(200).json(data || []);
     } catch (error) {
-        console.error('Server error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 }

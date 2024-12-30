@@ -64,13 +64,6 @@ export default function Home() {
         if (!userId || !grid.length) return;
         
         try {
-            console.log('Attempting to save session with data:', {
-                userId,
-                gridLength: grid.length,
-                attemptsLength: attempts.length,
-                cooldownTimersLength: cooldownTimers.length
-            });
-
             const sessionData = {
                 userId,
                 gridState: JSON.stringify(grid),
@@ -87,21 +80,20 @@ export default function Home() {
             const data = await response.json();
 
             if (!response.ok) {
-                console.error('Save session failed:', data);
-                throw new Error(data.details || data.error || 'Failed to save session');
+                setMessage('Failed to save progress');
+                return false;
             }
             
-            console.log('Session saved successfully:', data);
+            return true;
         } catch (error) {
-            console.error('Error in saveSession:', error);
-            // Don't throw the error, just log it
-            // This prevents the unhandled runtime error
+            setMessage('Failed to save progress');
+            return false;
         }
     }
 
     async function loadSession(userId) {
         try {
-            console.log('Loading session for userId:', userId);
+            
             const response = await fetch('/api/load-session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -109,18 +101,14 @@ export default function Home() {
             });
 
             const data = await response.json();
-            console.log('Load session response:', data);
+            
 
             if (response.ok && data.grid_state && data.attempts && data.cooldown_timers) {
                 const parsedGrid = JSON.parse(data.grid_state);
                 const parsedAttempts = JSON.parse(data.attempts);
                 const parsedCooldowns = JSON.parse(data.cooldown_timers);
 
-                console.log('Parsed session data:', {
-                    grid: parsedGrid,
-                    attempts: parsedAttempts,
-                    cooldowns: parsedCooldowns
-                });
+                
 
                 setGrid(parsedGrid);
                 setAttempts(parsedAttempts);
@@ -331,7 +319,6 @@ export default function Home() {
             await saveSession();
 
         } catch (error) {
-            console.error('Error in handleGuess:', error);
             setMessage('An error occurred. Please try again.');
         }
     }

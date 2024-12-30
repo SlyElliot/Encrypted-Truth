@@ -9,30 +9,25 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    const { playerName, totalAttempts, completionTime } = req.body;
+
     try {
-        const { playerName, totalAttempts, completionTime } = req.body;
-
-        if (!playerName || typeof totalAttempts !== 'number' || typeof completionTime !== 'number') {
-            return res.status(400).json({ error: 'Missing or invalid fields' });
-        }
-
         const { error } = await supabase
             .from('leaderboard')
-            .insert([{
-                player_name: playerName,
-                total_attempts: totalAttempts,
-                completion_time: completionTime,
-                email: null
-            }]);
+            .insert([
+                { 
+                    player_name: playerName,
+                    total_attempts: totalAttempts,
+                    completion_time: completionTime
+                }
+            ]);
 
         if (error) {
-            console.error('Supabase error:', error);
-            return res.status(500).json({ error: 'Failed to save leaderboard entry' });
+            return res.status(500).json({ error: 'Failed to save to leaderboard' });
         }
 
-        res.status(200).json({ message: 'Leaderboard entry saved successfully' });
+        res.status(200).json({ success: true });
     } catch (error) {
-        console.error('Server error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 }

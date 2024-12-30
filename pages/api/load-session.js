@@ -9,32 +9,19 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    try {
-        const { userId } = req.body;
+    const { userId } = req.body;
 
+    try {
         const { data, error } = await supabase
             .from('sessions')
-            .select('grid_state, attempts, cooldown_timers')
+            .select('*')
             .eq('user_id', userId)
             .single();
 
-        if (error) {
-            console.error('Supabase error:', error);
-            return res.status(404).json({ error: 'Session not found' });
-        }
+        if (error) throw error;
 
-        if (!data) {
-            return res.status(404).json({ error: 'Session not found' });
-        }
-
-        // Data is already in string format, send it as is
-        res.status(200).json({
-            grid_state: data.grid_state,
-            attempts: data.attempts,
-            cooldown_timers: data.cooldown_timers
-        });
+        res.status(200).json(data || {});
     } catch (error) {
-        console.error('Server error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to load session' });
     }
 }

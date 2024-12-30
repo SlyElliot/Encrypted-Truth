@@ -18,7 +18,6 @@ export default async function handler(req, res) {
             .single();
 
         if (error) {
-            console.error('Error fetching hacker name:', error);
             return res.status(500).json({ error: 'Failed to fetch hacker name.' });
         }
 
@@ -26,32 +25,33 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: 'No hacker name found for this row index.' });
         }
 
-        // If a guess is provided, validate it and return the pattern
-        if (guess) {
-            const actualName = data.name.toLowerCase();
-            const guessedName = guess.toLowerCase();
-            
-            // Return the validation pattern without revealing the name
-            const pattern = guessedName.split('').map((char, index) => {
-                if (char === actualName[index]) {
-                    return 'correct';
-                } else if (actualName.includes(char)) {
-                    return 'present';
-                } else {
-                    return 'incorrect';
-                }
-            });
+        const actualName = data.name.toLowerCase();
 
-            return res.status(200).json({
-                name: '*'.repeat(data.name.length),
-                pattern: pattern,
-                isCorrect: guessedName === actualName
+        // If no guess provided, only return the length
+        if (!guess) {
+            return res.status(200).json({ 
+                length: actualName.length,
+                mask: '*'.repeat(actualName.length)
             });
         }
 
-        // For initial load, return only the length of the name
-        res.status(200).json({ 
-            name: '*'.repeat(data.name.length)
+        // Validate the guess and return the pattern
+        const guessedName = guess.toLowerCase();
+        const pattern = guessedName.split('').map((char, index) => {
+            if (char === actualName[index]) {
+                return 'correct';
+            } else if (actualName.includes(char)) {
+                return 'present';
+            } else {
+                return 'incorrect';
+            }
+        });
+
+        return res.status(200).json({
+            pattern,
+            isCorrect: guessedName === actualName,
+            length: actualName.length,
+            mask: '*'.repeat(actualName.length)
         });
     } else {
         res.status(405).json({ error: 'Method not allowed' });
